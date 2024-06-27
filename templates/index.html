@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Subtitles</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #videoForm {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        #videoContainer {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #subtitles {
+            font-size: 20px;
+            color: #fff;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            margin-top: 10px;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        input, button {
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Subtítulos Corregidos por Modelo de NLP en Tiempo Real</h1>
+    <form id="videoForm">
+        <label for="videoId">ID del Video de YouTube:</label>
+        <input type="text" id="videoId" name="videoId" required>
+        <button type="submit">Cargar Video</button>
+    </form>
+    <div id="videoContainer"></div>
+    <div id="subtitles"></div>
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+        let player;
+        let intervalId;
+
+        function onYouTubeIframeAPIReady() {
+            document.getElementById('videoForm').addEventListener('submit', function(event) {
+                event.preventDefault();
+                const videoId = document.getElementById('videoId').value;
+                loadVideo(videoId);
+            });
+        }
+
+        function loadVideo(videoId) {
+            const videoContainer = document.getElementById('videoContainer');
+            videoContainer.innerHTML = `<div id="player"></div>`;
+            player = new YT.Player('player', {
+                height: '315',
+                width: '560',
+                videoId: videoId,
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            fetchSubtitles(player.getVideoData().video_id);
+        }
+
+        function onPlayerStateChange(event) {
+            if (event.data === YT.PlayerState.PLAYING) {
+                startSubtitleStream();
+            } else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
+                clearInterval(intervalId);
+            }
+        }
+
+        async function fetchSubtitles(videoId) {
+            const response = await fetch('/get_subtitles', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ video_id: videoId })
+            });
+            const data = await response.json();
+            if (data.status === 'success') {
+                // Los subtítulos se han cargado
+            }
+        }
+
+        function startSubtitleStream() {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+            fetchSubtitleSegment(); // Obtiene el primer segmento nada mas empezar
+            intervalId = setInterval(fetchSubtitleSegment, 10000); // 10 segundos
+        }
+
+        async function fetchSubtitleSegment() {
+            const currentTime = Math.floor(player.getCurrentTime());
+            const response = await fetch('/get_subtitle_segment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ start_time: currentTime, end_time: currentTime + 10 }) // 10 segundos
+            });
+            const data = await response.json();
+            displaySubtitles(data);
+        }
+
+        function displaySubtitles(segment) {
+            const subtitlesDiv = document.getElementById('subtitles');
+            subtitlesDiv.innerHTML = ''; // Eliminar subtítulos antiguos
+            segment.forEach(entry => {
+                const p = document.createElement('p');
+                p.textContent = entry.text;
+                subtitlesDiv.appendChild(p);
+            });
+        }
+    </script>
+</body>
+</html>
