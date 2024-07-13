@@ -51,11 +51,11 @@ def get_subtitles():
 # Función para predecir el texto corregido
 def predict(text):
     logger.info(text)
-    inputs = tokenizer(f"corrija: {text}", return_tensors="pt", padding=False, truncation=False, max_length=275)
+    inputs = tokenizer(f"corregir: {text}", return_tensors="pt", padding=False, truncation=False, max_length=270)
     inputs = {key: val.to(device) for key, val in inputs.items()}
 
     with torch.no_grad():
-        outputs = model.generate(inputs['input_ids'], max_length=256, num_beams=10, early_stopping=False)
+        outputs = model.generate(inputs['input_ids'], max_length=270, num_beams=10, early_stopping=False)
 
     corrected_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
     logger.info(corrected_text)
